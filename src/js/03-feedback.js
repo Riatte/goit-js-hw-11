@@ -46,7 +46,7 @@ function submitButton(event) {
     localObject = { email: ' ', message: ' ' };
     event.target.reset();
 
-    localStorage.removeItem(feedbackFormState);
+    localStorage.removeItem(FEEDBACK_FORM_STATE);
 }
 /////////////////////////////////////////////
 
