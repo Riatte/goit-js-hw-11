@@ -1,72 +1,109 @@
 import './css/styles.css';
-import { fetchCountries } from './js/fetchCountries.js';
-
-import debounce from 'lodash.debounce';
+import { fetchGallery } from './js/fetchGallery';
 import Notiflix from 'notiflix';
 
-const DEBOUNCE_DELAY = 300;
+const form = document.querySelector('.search-form');
+const galleryList = document.querySelector('.gallery');
+const btnMore = document.querySelector('.load-more')
 
-const inputCountry = document.querySelector('#search-box');
-const listCountry = document.querySelector('.country-list');
-const infoCountry = document.querySelector('.country-info');
+btnMore.style.display = 'none';
+let page = 0;
+
+form.addEventListener('submit', createGalerry);
+btnMore.addEventListener('click', loadMore);
 
 
-inputCountry.addEventListener('input', debounce(foundCountry, DEBOUNCE_DELAY) );
-
-
-/////////////////////
-function foundCountry(evt) {
+async function createGalerry(evt) {
     evt.preventDefault();
 
-    const inputValue = evt.target.value.trim();
-    clearInput();
-    if (!inputValue) { 
+    let inputValue = form.elements.searchQuery.value.trim();
+    page = 1;
+    cleanGallery();
+    btnMore.style.display = 'none';
+
+    if (!inputValue) {
+        Notiflix.Notify.warning('Please enter a search term');
+        cleanGallery();
         return;
-    };
+    }
 
-    fetchCountries(inputValue)
-        .then((countries) => {
-            if (countries.length > 10) {
-                Notiflix.Notify.info('Too many matches found. Please enter a more specific name.');
-            }
-            else if (countries.length >= 2 &&countries.length < 10) {
-                showCountries(countries);  
-            }
-            else if (countries.length === 1) {
-                showOneCountry(countries);
-            }
-        })
-        .catch(error => { 
-            Notiflix.Notify.failure("Oops, there is no country with that name")
-        })
-};
-///////////////////////////////////////////
+    try {
+        const pages = await fetchGallery(inputValue, page)
+        let totalHits = pages.data.totalHits;
+        btnMore.style.display = 'block';
+        renderImage(pages.data.hits)
+        
+        Notiflix.Notify.success(`Hooray! We found ${totalHits} images.`)
+    }
+    catch (err) {
+        Notiflix.Notify.failure("Sorry, there are no images matching your search query. Please try again.");
+    }
 
-function showCountries(names) { 
-    const markup = names
-        .map((name) => {
-            return `<li class="country-li"><img src='${name.flags.svg}' alt='flag of ${name.name.official}' width = '30' >${name.name.official}</li>`;
-        })
-        .join("");
-    listCountry.innerHTML = markup;
 };
 
+function renderImage(images) {
+    const markup = images
+        .map(({ webformatURL,
+            largeImageURL,
+            tags,
+            likes,
+            views,
+            comments,
+            downloads }) => {
+            return `<div class="photo-card">
+      <a href="${largeImageURL}">
+      <img class="photo" src="${webformatURL}" 
+      alt="${tags}" loading="lazy"/>
+      <div class="info">
+      <p class="info-item">
+      <b>Likes</b>
+      <span class="info-item"> ${likes}</span>
+      </p>
+       <p class="info-item">
+       <b>Views</b> <span class="info-item">${views}</span>  
+       </p>
+       <p class="info-item">
+           <b>Comments</b>
+           <span class="info-item">${comments}</span>  
+       </p>
+       <p class="info-item">
+           <b>Downloads</b>
+           <span class="info-item">${downloads}</span> 
+       </p>
+    </div>
+      </a>
+    
+    </div>`;
+    
+})
+    .join("");  
+    return galleryList.insertAdjacentHTML('beforeend', markup);
+}
 
-function showOneCountry(names) { 
-    const markup = names
-        .map((name) => {
-            return `<h2 class="country-titel"><img src='${name.flags.svg}' alt='flag of ${name.name.official}' width = '70' height= '50'> 
-            ${name.name.official}</h2> 
-            <p><b>Capital: </b>${name.capital}</p> 
-            <p><b>Population: </b>${name.population}</p> 
-            <p><b>Languages: </b>${Object.values(name.languages)}</p> 
-            `
-        })
-        .join("");
-    infoCountry.innerHTML = markup;
-};
 
-function clearInput(){
-    listCountry.innerHTML = '';
-    infoCountry.innerHTML = '';
+async function loadMore() {
+    page++;
+    const inputValue = form.elements.searchQuery.value.trim();
+    try {
+        const pages = await fetchGallery(inputValue, page);
+        const pageLast = pages.data.totalHits;
+        if (page > pageLast) { 
+            Notiflix.Notify.info("We're sorry, but you've reached the end of search results.")
+            form.reset();
+            btnMore.style.display = 'none';
+        }
+        renderImage(pages.data.hits)
+        btnMore.style.display = 'block';
+    }
+    catch (error) {
+  Notiflix.Notify.failure("Sorry, there are no images matching your search query. Please try again.");
+}};
+
+
+
+
+
+//////////////////
+function cleanGallery() { 
+    galleryList.innerHTML = '';
 };
